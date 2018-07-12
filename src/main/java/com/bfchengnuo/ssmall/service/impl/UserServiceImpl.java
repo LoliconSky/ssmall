@@ -16,7 +16,7 @@ import java.util.UUID;
 /**
  * Created by 冰封承諾Andy on 2018/7/11.
  */
-@Service("iUserServiceImpl")
+@Service("userServiceImpl")
 public class UserServiceImpl implements IUserService {
     @Autowired
     private UserMapper userMapper;
@@ -185,5 +185,13 @@ public class UserServiceImpl implements IUserService {
         }
         user.setPassword(StringUtils.EMPTY);
         return ServerResponse.createBySuccess(user);
+    }
+
+    @Override
+    public ServerResponse checkAdminRole(User user) {
+        if (user != null && user.getRole() == Const.Role.ROLE_ADMIN) {
+            return ServerResponse.createBySuccess();
+        }
+        return ServerResponse.createByError();
     }
 }
