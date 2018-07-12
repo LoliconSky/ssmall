@@ -20,7 +20,7 @@ import java.util.Set;
  * 对品类的管理逻辑
  * Created by 冰封承諾Andy on 2018/7/12.
  */
-@Service("categoryServiceImpl")
+@Service("categoryService")
 public class CategoryServiceImpl implements ICategoryService {
     private static final Logger LOGGER = LoggerFactory.getLogger(CategoryServiceImpl.class);
     @Autowired
