@@ -5,13 +5,21 @@ import com.bfchengnuo.ssmall.common.ResponseCode;
 import com.bfchengnuo.ssmall.common.ServerResponse;
 import com.bfchengnuo.ssmall.pojo.Product;
 import com.bfchengnuo.ssmall.pojo.User;
+import com.bfchengnuo.ssmall.service.IFileService;
 import com.bfchengnuo.ssmall.service.IProductService;
 import com.bfchengnuo.ssmall.service.IUserService;
+import com.bfchengnuo.ssmall.util.PropertiesUtil;
+import com.google.common.collect.Maps;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import java.util.Map;
 
 /**
  * 管理产品的接口
@@ -24,6 +32,8 @@ public class ProductManageController {
     private IUserService userService;
     @Autowired
     private IProductService productService;
+    @Autowired
+    private IFileService fileService;
 
     @PostMapping("save.do")
     @ResponseBody
@@ -101,5 +111,62 @@ public class ProductManageController {
         } else {
             return ServerResponse.createByErrorMessage("无权操作");
         }
+    }
+
+    @PostMapping("upload.do")
+    @ResponseBody
+    public ServerResponse upload(HttpSession session,
+                                 @RequestParam(value = "upload_file", required = false) MultipartFile file,
+                                 HttpServletRequest request) {
+        User user = (User) session.getAttribute(Const.CURRENT_USER);
+        if (user == null) {
+            return ServerResponse.createByErrorCodeMessage(ResponseCode.NEED_LOGIN.getCode(), "未登录，需要管理员账号登陆");
+        }
+        if (userService.checkAdminRole(user).isSuccess()) {
+            String path = request.getServletContext().getRealPath("upload");
+            String targetFileName = fileService.upload(file, path);
+            String url = PropertiesUtil.getProperty("ftp.server.http.prefix") + targetFileName;
+
+            Map<String, String> data = Maps.newHashMap();
+            data.put("uri", targetFileName);
+            data.put("url", url);
+            return ServerResponse.createBySuccess(data);
+        } else {
+            return ServerResponse.createByErrorMessage("无权操作");
+        }
+    }
+
+    @PostMapping("richtext_img_upload.do")
+    @ResponseBody
+    public Map<String, Object> richtextImgUpload(HttpSession session,
+                                                 @RequestParam(value = "upload_file", required = false) MultipartFile file,
+                                                 HttpServletRequest request,
+                                                 HttpServletResponse response) {
+        Map<String, Object> data = Maps.newHashMap();
+        User user = (User) session.getAttribute(Const.CURRENT_USER);
+        if (user == null) {
+            data.put("success", false);
+            data.put("msg", "未登录，需要管理员账号登陆");
+        }
+        if (userService.checkAdminRole(user).isSuccess()) {
+            // 富文本控件用的 simditor 对返回值有规范要求
+            String path = request.getServletContext().getRealPath("upload");
+            String targetFileName = fileService.upload(file, path);
+            if (StringUtils.isBlank(targetFileName)) {
+                data.put("success", false);
+                data.put("msg", "上传文件失败");
+                return data;
+            }
+            String url = PropertiesUtil.getProperty("ftp.server.http.prefix") + targetFileName;
+            data.put("success", true);
+            data.put("msg", "上传文件成功");
+            data.put("file_path", url);
+            // 和前端的约定
+            response.addHeader("Access-Control-Allow-Headers","X-File-Name");
+        } else {
+            data.put("success", false);
+            data.put("msg", "无权操作");
+        }
+        return data;
     }
 }
