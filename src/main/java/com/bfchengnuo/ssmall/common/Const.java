@@ -1,5 +1,9 @@
 package com.bfchengnuo.ssmall.common;
 
+import com.google.common.collect.Sets;
+
+import java.util.Set;
+
 /**
  * 通用的常量类
  * Created by 冰封承諾Andy on 2018/7/11.
@@ -15,5 +19,30 @@ public class Const {
         int ROLE_CUSTOMER = 0;
         // 管理员
         int ROLE_ADMIN = 1;
+    }
+
+    public interface ProductListOrderBy{
+        // 相比 list， set 的  contains 时间复杂度 o1 ，list on
+        Set<String> PRICE_ASC_DESC = Sets.newHashSet("price_desc", "price_asc");
+    }
+
+    public enum ProductStatusEnum{
+        ON_SALE(1, "在线");
+
+        private int code;
+        private String value;
+
+        ProductStatusEnum(int code, String value) {
+            this.code = code;
+            this.value = value;
+        }
+
+        public int getCode() {
+            return code;
+        }
+
+        public String getValue() {
+            return value;
+        }
     }
 }
