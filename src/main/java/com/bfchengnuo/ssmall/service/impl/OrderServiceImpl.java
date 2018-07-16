@@ -20,8 +20,11 @@ import com.bfchengnuo.ssmall.util.DateTimeUtil;
 import com.bfchengnuo.ssmall.util.FTPUtil;
 import com.bfchengnuo.ssmall.util.PropertiesUtil;
 import com.bfchengnuo.ssmall.vo.OrderItemVo;
+import com.bfchengnuo.ssmall.vo.OrderProductVo;
 import com.bfchengnuo.ssmall.vo.OrderVo;
 import com.bfchengnuo.ssmall.vo.ShippingVo;
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.apache.commons.collections.CollectionUtils;
@@ -245,6 +248,93 @@ public class OrderServiceImpl implements IOrderService {
         return ServerResponse.createBySuccess(assembleOrderVo(order, response.getData()));
     }
 
+    @Override
+    public ServerResponse cancel(Integer userId, Long orderNo) {
+        Order order = orderMapper.selectByUserIdAndOrderNo(userId, orderNo);
+        if (order == null) {
+            return ServerResponse.createByErrorMessage("订单不存在");
+        }
+        if (order.getStatus() != Const.OrderStatusEnum.NO_PAY.getCode()) {
+            return ServerResponse.createByErrorMessage("已支付，不允许取消");
+        }
+        Order updateOrder = new Order();
+        updateOrder.setId(order.getId());
+        updateOrder.setStatus(Const.OrderStatusEnum.CANCELED.getCode());
+        int result = orderMapper.updateByPrimaryKeySelective(updateOrder);
+        if (result > 0) {
+            return ServerResponse.createBySuccess();
+        }
+        return ServerResponse.createByError();
+    }
+
+    /**
+     * 为创建订单时的信息展示页提供数据支持
+     * @param userId 用户 id
+     * @return 下单前订单明细数据
+     */
+    @Override
+    public ServerResponse getOrderCartProduct(Integer userId) {
+        OrderProductVo orderProductVo = new OrderProductVo();
+        List<Cart> cartList = cartMapper.selectCheckedCartByUserId(userId);
+        ServerResponse<List<OrderItem>> response = this.getCartOrderItem(userId, cartList);
+        if (!response.isSuccess()) {
+            return response;
+        }
+        List<OrderItemVo> orderItemVoList = Lists.newArrayList();
+        BigDecimal payment = new BigDecimal("0");
+        for (OrderItem orderItem : response.getData()) {
+            payment = BigDecimalUtil.add(payment.doubleValue(), orderItem.getTotalPrice().doubleValue());
+            orderItemVoList.add(assembleOrderItemVo(orderItem));
+        }
+        orderProductVo.setOrderItemVoList(orderItemVoList);
+        orderProductVo.setProductTotalPrice(payment);
+        orderProductVo.setImageHost(PropertiesUtil.getProperty("ftp.server.http.prefix"));
+        return ServerResponse.createBySuccess(orderProductVo);
+    }
+
+    @Override
+    public ServerResponse getOrderDetail(Integer userId, Long orderNo) {
+        Order order = orderMapper.selectByUserIdAndOrderNo(userId, orderNo);
+        if (order != null) {
+            List<OrderItem> orderItems = orderItemMapper.getByOrderNoAndUserId(orderNo, userId);
+            return ServerResponse.createBySuccess(assembleOrderVo(order, orderItems));
+        }
+        return ServerResponse.createByErrorMessage("未找到该订单");
+    }
+
+    @Override
+    public ServerResponse getOrderList(Integer userId, Integer pageNumber, Integer pageSize) {
+        PageHelper.startPage(pageNumber, pageSize);
+        List<Order> orderList = orderMapper.selectByUserId(userId);
+        PageInfo pageInfo = new PageInfo(orderList);
+        pageInfo.setList(assembleOrderVoList(orderList, userId));
+        return ServerResponse.createBySuccess(pageInfo);
+    }
+
+    /**
+     * 拼装用户的订单列表，包含明细数据（OrderItem）
+     * 明细会根据传入的 orderList 和 userId 查询获得，管理员 userId可传空
+     * @param orderList 订单数据
+     * @param userId 用户 id，管理员可传 null，即是获取所有
+     * @return 前台可用的订单 VO list
+     */
+    private List<OrderVo> assembleOrderVoList(List<Order> orderList,Integer userId){
+        List<OrderVo> orderVoList = Lists.newArrayList();
+        for(Order order : orderList){
+            // 查找并组装明细
+            List<OrderItem>  orderItemList;
+            if(userId == null){
+                // 管理员查询的时候 不需要传 userId
+                orderItemList = orderItemMapper.getByOrderNo(order.getOrderNo());
+            }else{
+                orderItemList = orderItemMapper.getByOrderNoAndUserId(order.getOrderNo(),userId);
+            }
+            OrderVo orderVo = assembleOrderVo(order,orderItemList);
+            orderVoList.add(orderVo);
+        }
+        return orderVoList;
+    }
+
     private OrderVo assembleOrderVo(Order order, List<OrderItem> orderItemList){
         OrderVo orderVo = new OrderVo();
         orderVo.setOrderNo(order.getOrderNo());
@@ -281,7 +371,6 @@ public class OrderServiceImpl implements IOrderService {
         return orderVo;
     }
 
-
     private OrderItemVo assembleOrderItemVo(OrderItem orderItem){
         OrderItemVo orderItemVo = new OrderItemVo();
         orderItemVo.setOrderNo(orderItem.getOrderNo());
@@ -308,7 +397,6 @@ public class OrderServiceImpl implements IOrderService {
         shippingVo.setReceiverPhone(shippingVo.getReceiverPhone());
         return shippingVo;
     }
-
 
     private void cleanCart(List<Cart> cartList) {
         cartList.forEach(cart -> cartMapper.deleteByPrimaryKey(cart.getId()));
@@ -347,7 +435,13 @@ public class OrderServiceImpl implements IOrderService {
         return null;
     }
 
-    // 计算每笔订单的总价和封装订单列表信息
+    /**
+     * 计算每笔订单的总价和封装订单列表信息
+     * 会校验购物车商品的库存与售卖状态是否符合购买，不符合返回错误
+     * @param userId 用户 id
+     * @param cartList 要计算的购物车数据（通常为选中的商品）
+     * @return 拼装好的此购物车形成的订单数据
+     */
     private ServerResponse<List<OrderItem>> getCartOrderItem(Integer userId, List<Cart> cartList) {
         if (CollectionUtils.isEmpty(cartList)) {
             return ServerResponse.createByErrorMessage("购物车为空");
