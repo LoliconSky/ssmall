@@ -43,6 +43,11 @@
         from mmall_cart
         where user_id = #{userId}
     </select>
+    <select id="selectCheckedCartByUserId" resultMap="BaseResultMap">
+        select ifnull(sum(quantity), 0)
+        from mmall_cart
+        where user_id = #{userId} and checked = 1
+    </select>
     <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer">
         delete from mmall_cart
         where id = #{id,jdbcType=INTEGER}

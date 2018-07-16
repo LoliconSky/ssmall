@@ -34,4 +34,6 @@ public interface CartMapper {
 
     // null 无法赋值为 int 等基本数据类型
     int selectCartProductCount(Integer userId);
+
+    List<Cart> selectCheckedCartByUserId(Integer userId);
 }

@@ -3,6 +3,9 @@ package com.bfchengnuo.ssmall.dao;
 import com.bfchengnuo.ssmall.pojo.Order;
 import org.apache.ibatis.annotations.Param;
 
+/**
+ * 整个订单的po，包含订单的总金额、订单号、运费、支付时间、发货时间、是否完成等等
+ */
 public interface OrderMapper {
     int deleteByPrimaryKey(Integer id);
 
