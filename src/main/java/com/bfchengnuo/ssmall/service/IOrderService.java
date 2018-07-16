@@ -1,6 +1,7 @@
 package com.bfchengnuo.ssmall.service;
 
 import com.bfchengnuo.ssmall.common.ServerResponse;
+import com.github.pagehelper.PageInfo;
 
 import java.util.Map;
 
@@ -24,4 +25,12 @@ public interface IOrderService {
     ServerResponse getOrderDetail(Integer userId, Long orderNo);
 
     ServerResponse getOrderList(Integer userId, Integer pageNumber, Integer pageSize);
+
+    ServerResponse<PageInfo> manageList(Integer pageNumber, Integer pageSize);
+
+    ServerResponse manageDetail(Long orderNo);
+
+    ServerResponse<PageInfo> manageSearch(Long orderNo, Integer pageNumber, Integer pageSize);
+
+    ServerResponse manageSendGoods(Long orderNo);
 }
