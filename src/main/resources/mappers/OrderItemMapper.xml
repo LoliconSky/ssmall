@@ -126,10 +126,10 @@
         </trim>
     </insert>
     <insert id="batchInsert">
-        insert into mmall_order_item (id, user_id, order_no,
-        product_id, product_name, product_image,
-        current_unit_price, quantity, total_price,
-        create_time, update_time)
+        insert into mmall_order_item (id, order_no,user_id, product_id,
+        product_name, product_image, current_unit_price,
+        quantity, total_price, create_time,
+        update_time)
         values
         <foreach collection="orderItems" item="item" separator=",">
             (
